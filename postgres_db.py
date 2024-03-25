@@ -50,7 +50,7 @@ class PostgresDB:
             print("Something went wrong!")
             print(error)
 
-    def insert_table(self, table_name: str, columns: list, values: list):
+    def insert_table(self, table_name: str, columns: list, values: str):
         """
         Insert data into a specified table in the database.
 
@@ -61,20 +61,8 @@ class PostgresDB:
 
         Returns:
             None
-        """
-        values_for_insert = ''
-        for value in values:
-            if value is None:
-                values_for_insert += 'NULL,'
-            elif type(value) in [int, float]:
-                values_for_insert += f'{value},'
-            elif type(value) == bool:  # noqa: E721
-                values_for_insert += 'TRUE,' if value else 'FALSE,'
-            else:
-                values_for_insert += f'"{value}",'
-            values_for_insert = values_for_insert.rstrip(',')
-        
-        self.cursor.execute(f'''INSERT INTO {table_name} ({", ".join(columns)}) VALUES({values_for_insert});''')
+        """        
+        self.cursor.execute(f'''INSERT INTO {table_name} ({", ".join(columns)}) VALUES({values});''')
         self.connect.commit()
 
     def execute_query(self, query: str):

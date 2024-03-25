@@ -24,22 +24,21 @@ class ExcelWorker:
         :rtype: pandas.DataFrame
         """
 
-        self.df = pd.read_excel(self.path_to_file, sheet_name=sheet_name, header=1)
+        self.df = pd.read_excel(self.path_to_file, sheet_name=sheet_name, header=0)
         for column in self.df.columns: # Remove empty columns from self.df.columns:
-            empty_rows = 0
+            empty_cells_col = 0
             for value in self.df[column]:
                 if pd.isna(value):
-                    empty_rows += 1
-            if empty_rows == len(self.df[column]):
+                    empty_cells_col += 1
+            if empty_cells_col == len(self.df[column]):
                 self.df = self.df.drop(column, axis=1)
-    
+
     def guess_types_of_columns(self):  # sourcery skip: merge-else-if-into-elif
-        column_types = {}
+        column_types_dict = {}
 
         for column in self.df.columns:
             current_column_types = []
             for value in self.df[column]:
-                print(value, type(value))
                 if type(str(value).isdigit()) == int:  # noqa: E721
                     current_column_types.append("int")
                 else:
@@ -54,32 +53,37 @@ class ExcelWorker:
                             current_column_types.append("char")
                         else:
                             current_column_types.append("text")
-                        
+
 
             if "float" in current_column_types:
-                column_types[f"{column}"] = Type.FLOAT
+                column_types_dict[f"{column}"] = Type.FLOAT
             elif "int" in current_column_types:
-                column_types[f"{column}"] = Type.INT
+                column_types_dict[f"{column}"] = Type.INT
             elif "text" in current_column_types:
-                column_types[f"{column}"] = Type.TEXT
+                column_types_dict[f"{column}"] = Type.TEXT
             elif "char" in current_column_types:
-                column_types[f"{column}"] = Type.CHAR
+                column_types_dict[f"{column}"] = Type.CHAR
             elif "bool" in current_column_types:
-                column_types[f"{column}"] = Type.BOOL
+                column_types_dict[f"{column}"] = Type.BOOL
             elif "date" in current_column_types:
-                column_types[f"{column}"] = Type.DATE
+                column_types_dict[f"{column}"] = Type.DATE
             else:
-                column_types[f"{column}"] = Type.TEXT
+                column_types_dict[f"{column}"] = Type.TEXT
         
-        return ', '.join([f'"{key}" {value}' for key, value in column_types.items()])
+        column_types = ', '.join([f'"{key}" {value}' for key, value in column_types_dict.items()])
+        column_titles = [f'"{key}"' for key in column_types_dict]
+
+        return column_types, column_titles 
 
 
     def write_to_database(self, table_name: str):
-        column_types = self.guess_types_of_columns()
-        print(f"Колонны: {column_types}")
-        """ Вернуться и доделать! """
+        column_types, column_titles = self.guess_types_of_columns()
         psql = PostgresDB(dbname="test_database", user=s.POSTGRES_USER, password=s.POSTGRES_PASSWORD)
-        # psql.create_table(title=table_name, columns=column_types)
+        psql.create_table(title=table_name, columns=column_types)
+        for row in self.df.iterrows():
+            current_row = [row[1][i] for i in range(len(row[1]))]
+            psql.insert_table(table_name=table_name, columns=column_titles, values=self.make_values_tuple(current_row))
+        
 
     @staticmethod
     def is_decimal(value):
@@ -123,6 +127,23 @@ class ExcelWorker:
         except ValueError:
             return False
 
+    @staticmethod
+    def make_values_tuple(row: list):
+        """
+        Create a tuple of values from the given dictionary row. 
+        Takes a dictionary row as input and returns a string of values.
+        """
+        values = ""
+        for value in row:
+            if value is None:
+                values += "NULL,"
+            elif type(value) in [int, float]:
+                values += f"{value},"
+            elif type(value) == bool:  # noqa: E721
+                values += "TRUE," if value else "FALSE,"
+            else:
+                values += f'"{value}",'
+        return values.rstrip(",")
 
 xls = ExcelWorker(path_to_file="test.xlsx")
 xls.find_table_from_sheet("2024")
