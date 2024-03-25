@@ -6,6 +6,8 @@ class Type:
     BOOL = "bool"
     CHAR = "char"
     TEXT = "text"
+    FLOAT = "float"
+    DATE = "date"
 
 
 class PostgresDB:
@@ -40,9 +42,13 @@ class PostgresDB:
         Returns:
             None
         """
-        columns = ", ".join([f'"{key}" {value}' for key, value in columns.items()])        
-        self.cursor.execute(f'''CREATE TABLE IF NOT EXISTS {title} ({columns});''')
-        self.connect.commit()
+        try:        
+            self.cursor.execute(f'''CREATE TABLE IF NOT EXISTS {title} ({columns});''')
+            self.connect.commit()
+            print(f"Table {title} created successfully!")
+        except Exception as error:
+            print("Something went wrong!")
+            print(error)
 
     def insert_table(self, table_name: str, columns: list, values: list):
         """
